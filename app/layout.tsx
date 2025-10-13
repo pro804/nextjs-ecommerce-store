@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/navbar/Navbar";
+import Container from "@/components/global/Container";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "nextjs-ecommerce-store",
-  description: "A store build with Next.js",
+  title: "Next.js E-commerce Store",
+  description:
+    "A modern e-commerce store built with Next.js, Supabase, Clerk, and Stripe.",
 };
 
 export default function RootLayout({
@@ -15,7 +18,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <Navbar />
+        <Container className="py-20">{children}</Container>
+      </body>
     </html>
   );
 }
