@@ -7,6 +7,10 @@ import { imageSchema, productSchema, validateWithZodSchema } from "./schemas";
 import { deleteImage, uploadImage } from "./supabase";
 import { revalidatePath } from "next/cache";
 
+/* ──────────────────────────────
+   AUTH HELPERS
+   Purpose: centralize auth/authorization checks
+   ────────────────────────────── */
 const getAuthUser = async () => {
   const user = await currentUser();
   if (!user) redirect("/");
@@ -19,6 +23,10 @@ const getAdminUser = async () => {
   return user;
 };
 
+/* ──────────────────────────────
+   ERROR HANDLING
+   Purpose: uniform error shape for actions
+   ────────────────────────────── */
 const renderError = (error: unknown): { message: string } => {
   console.log(error);
   return {
@@ -29,6 +37,12 @@ const renderError = (error: unknown): { message: string } => {
   };
 };
 
+/* ──────────────────────────────
+   PUBLIC • PRODUCTS (READ-ONLY)
+   Purpose: storefront queries, no admin required
+   ────────────────────────────── */
+
+/** Featured products for homepage sections */
 export const fetchFeaturedProducts = async () => {
   const products = await db.product.findMany({
     where: {
@@ -38,6 +52,7 @@ export const fetchFeaturedProducts = async () => {
   return products;
 };
 
+/** List/search all products (case-insensitive name/company) */
 export const fetchAllProducts = async ({ search = "" }: { search: string }) => {
   return db.product.findMany({
     where: {
@@ -52,6 +67,8 @@ export const fetchAllProducts = async ({ search = "" }: { search: string }) => {
   });
 };
 
+/** Single product by id (redirects to /products if not found) */
+// Note: export name kept as-is to avoid breaking imports.
 export const FetchSingleProduct = async (productId: string) => {
   const product = await db.product.findUnique({
     where: {
@@ -62,6 +79,10 @@ export const FetchSingleProduct = async (productId: string) => {
   return product;
 };
 
+/* ──────────────────────────────
+   ADMIN • PRODUCTS (CREATE)
+   Purpose: admin create flow incl. image upload
+   ────────────────────────────── */
 export const createProductAction = async (
   prevState: any,
   formData: FormData
@@ -86,6 +107,10 @@ export const createProductAction = async (
   redirect("/admin/products");
 };
 
+/* ──────────────────────────────
+   ADMIN • PRODUCTS (READ/LIST)
+   Purpose: admin list & details
+   ────────────────────────────── */
 export const fetchAdminProducts = async () => {
   await getAdminUser();
   const products = await db.product.findMany({
@@ -96,6 +121,10 @@ export const fetchAdminProducts = async () => {
   return products;
 };
 
+/* ──────────────────────────────
+   ADMIN • PRODUCTS (DELETE)
+   Purpose: remove product + cleanup image
+   ────────────────────────────── */
 export const deleteProductAction = async (prevState: { productId: string }) => {
   const { productId } = prevState;
   await getAdminUser();
@@ -114,6 +143,10 @@ export const deleteProductAction = async (prevState: { productId: string }) => {
   }
 };
 
+/* ──────────────────────────────
+   ADMIN • PRODUCTS (DETAILS)
+   Purpose: fetch single product for admin
+   ────────────────────────────── */
 export const fetchAdminProductDetails = async (productId: string) => {
   await getAdminUser();
   const product = await db.product.findUnique({
@@ -124,6 +157,11 @@ export const fetchAdminProductDetails = async (productId: string) => {
   if (!product) redirect("/admin/products");
   return product;
 };
+
+/* ──────────────────────────────
+   ADMIN • PRODUCTS (UPDATE FIELDS)
+   Purpose: update non-image fields
+   ────────────────────────────── */
 
 export const updateProductAction = async (
   prevState: any,
@@ -150,6 +188,10 @@ export const updateProductAction = async (
   }
 };
 
+/* ──────────────────────────────
+   ADMIN • PRODUCT IMAGES (UPDATE)
+   Purpose: upload new, delete old, then revalidate
+   ────────────────────────────── */
 export const updateProductImageAction = async (
   prevState: any,
   formData: FormData
@@ -178,6 +220,10 @@ export const updateProductImageAction = async (
   }
 };
 
+/* ──────────────────────────────
+   PUBLIC • FAVORITES
+   Purpose: user favorites add/remove & queries
+   ────────────────────────────── */
 export const fetchFavoriteId = async ({ productId }: { productId: string }) => {
   const user = await getAuthUser();
   const favorite = await db.favorite.findFirst({
@@ -235,3 +281,20 @@ export const fetchUserFavorites = async () => {
   });
   return favorites;
 };
+
+/* ──────────────────────────────
+   REVIEWS (PLACEHOLDER)
+   Purpose: scaffold for future implementation
+   ────────────────────────────── */
+export const createReviewAction = async (
+  prevState: any,
+  formData: FormData
+) => {
+  return { message: "review submitted successfully" };
+};
+
+export const fetchProductReviews = async () => {};
+export const fetchProductReviewsByUser = async () => {};
+export const deleteReviewAction = async () => {};
+export const findExistingReview = async () => {};
+export const fetchProductRating = async () => {};
