@@ -57,7 +57,7 @@ export const fetchFeaturedProducts = async () => {
   return products;
 };
 
-/** List/search all products (case-insensitive name/company) */
+/** Search and list products by name/company (case-insensitive), newest first. */
 export const fetchAllProducts = async ({ search = "" }: { search: string }) => {
   return db.product.findMany({
     where: {
@@ -72,7 +72,7 @@ export const fetchAllProducts = async ({ search = "" }: { search: string }) => {
   });
 };
 
-/** Single product by id (redirects to /products if not found) */
+/** Fetch a single product by id; redirect to /products if not found. */
 // Note: export name kept as-is to avoid breaking imports.
 export const FetchSingleProduct = async (productId: string) => {
   const product = await db.product.findUnique({
@@ -88,6 +88,8 @@ export const FetchSingleProduct = async (productId: string) => {
    ADMIN • PRODUCTS (CREATE)
    Purpose: admin create flow incl. image upload
    ────────────────────────────── */
+
+/** Create a new product (admin), with Zod validation and image upload. */
 export const createProductAction = async (
   prevState: any,
   formData: FormData
@@ -116,6 +118,7 @@ export const createProductAction = async (
    ADMIN • PRODUCTS (READ/LIST)
    Purpose: admin list & details
    ────────────────────────────── */
+/** List all products for admin (newest first). */
 export const fetchAdminProducts = async () => {
   await getAdminUser();
   const products = await db.product.findMany({
@@ -130,6 +133,8 @@ export const fetchAdminProducts = async () => {
    ADMIN • PRODUCTS (DELETE)
    Purpose: remove product + cleanup image
    ────────────────────────────── */
+
+/** Delete a product (admin), remove its image, and revalidate admin page. */
 export const deleteProductAction = async (prevState: { productId: string }) => {
   const { productId } = prevState;
   await getAdminUser();
@@ -152,6 +157,8 @@ export const deleteProductAction = async (prevState: { productId: string }) => {
    ADMIN • PRODUCTS (DETAILS)
    Purpose: fetch single product for admin
    ────────────────────────────── */
+
+/** Fetch admin product details by id; redirect if not found. */
 export const fetchAdminProductDetails = async (productId: string) => {
   await getAdminUser();
   const product = await db.product.findUnique({
@@ -168,6 +175,7 @@ export const fetchAdminProductDetails = async (productId: string) => {
    Purpose: update non-image fields
    ────────────────────────────── */
 
+/** Update product fields (admin), excluding image; revalidate edit page. */
 export const updateProductAction = async (
   prevState: any,
   formData: FormData
@@ -197,6 +205,8 @@ export const updateProductAction = async (
    ADMIN • PRODUCT IMAGES (UPDATE)
    Purpose: upload new, delete old, then revalidate
    ────────────────────────────── */
+
+/** Update a product image (admin): validate, upload new, delete old, revalidate. */
 export const updateProductImageAction = async (
   prevState: any,
   formData: FormData
@@ -229,6 +239,8 @@ export const updateProductImageAction = async (
    PUBLIC • FAVORITES
    Purpose: user favorites add/remove & queries
    ────────────────────────────── */
+
+/** Fetch a favorite id (if exists) for the current user + product. */
 export const fetchFavoriteId = async ({ productId }: { productId: string }) => {
   const user = await getAuthUser();
   const favorite = await db.favorite.findFirst({
@@ -243,6 +255,7 @@ export const fetchFavoriteId = async ({ productId }: { productId: string }) => {
   return favorite?.id || null;
 };
 
+/** Toggle favorite (add/remove) for current user and revalidate the given path. */
 export const toggleFavoriteAction = async (prevState: {
   productId: string;
   favoriteId: string | null;
@@ -274,6 +287,7 @@ export const toggleFavoriteAction = async (prevState: {
   }
 };
 
+/** Fetch all favorites for the current user, including product data. */
 export const fetchUserFavorites = async () => {
   const user = await getAuthUser();
   const favorites = await db.favorite.findMany({
@@ -288,8 +302,11 @@ export const fetchUserFavorites = async () => {
 };
 
 /* ──────────────────────────────
-   REVIEWS 
+   REVIEWS
+   Purpose: handle user product reviews (CRUD + stats)
    ────────────────────────────── */
+
+/** Create a review for a product (user), with Zod validation and revalidate product page. */
 export const createReviewAction = async (
   prevState: any,
   formData: FormData
@@ -311,6 +328,7 @@ export const createReviewAction = async (
   }
 };
 
+/** Fetch all reviews for a product, newest first. */
 export const fetchProductReviews = async (productId: string) => {
   const reviews = await db.review.findMany({
     where: {
@@ -323,6 +341,7 @@ export const fetchProductReviews = async (productId: string) => {
   return reviews;
 };
 
+/** Compute average rating and total count for a product’s reviews. */
 export const fetchProductRating = async (productId: string) => {
   const result = await db.review.groupBy({
     by: ["productId"],
@@ -343,6 +362,7 @@ export const fetchProductRating = async (productId: string) => {
   };
 };
 
+/** Fetch all reviews created by the current user (with minimal product info). */
 export const fetchProductReviewsByUser = async () => {
   const user = await getAuthUser();
   const reviews = await db.review.findMany({
@@ -363,6 +383,8 @@ export const fetchProductReviewsByUser = async () => {
   });
   return reviews;
 };
+
+/** Delete the current user's review by id and revalidate the reviews page. */
 export const deleteReviewAction = async (prevState: { reviewId: string }) => {
   const { reviewId } = prevState;
   const user = await getAuthUser();
@@ -379,6 +401,8 @@ export const deleteReviewAction = async (prevState: { reviewId: string }) => {
     return renderError(error);
   }
 };
+
+/** Find if a user has already reviewed a specific product. */
 export const findExistingReview = async (userId: string, productId: string) => {
   return db.review.findFirst({
     where: {
@@ -387,3 +411,8 @@ export const findExistingReview = async (userId: string, productId: string) => {
     },
   });
 };
+
+/* ──────────────────────────────
+   CART
+   Purpose: user shopping cart CRUD 
+   ────────────────────────────── */
