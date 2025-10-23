@@ -434,3 +434,7 @@ export const fetchCartItems = async () => {
   });
   return cart?.numItemsInCart || 0;
 };
+
+export const AddToCartAction = async (prevState: any, formData: FormData) => {
+  return { message: "product added to the cart" };
+};

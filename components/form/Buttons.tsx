@@ -109,7 +109,7 @@ export const ProductSignInButton = () => {
   return (
     <SignInButton mode="modal">
       <Button type="button" size="default" className="mt-8 capitalize">
-        please sign In
+        sign In
       </Button>
     </SignInButton>
   );
