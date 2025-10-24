@@ -11,6 +11,7 @@ import {
 } from "./schemas";
 import { deleteImage, uploadImage } from "./supabase";
 import { revalidatePath } from "next/cache";
+import { Cart } from "@prisma/client";
 
 /* ──────────────────────────────
    AUTH HELPERS
@@ -422,6 +423,7 @@ export const findExistingReview = async (userId: string, productId: string) => {
  * Returns the total number of items currently in the user's cart.
  * If the user has no cart, returns 0.
  */
+
 export const fetchCartItems = async () => {
   const { userId } = auth();
   const cart = await db.cart.findFirst({
@@ -435,6 +437,172 @@ export const fetchCartItems = async () => {
   return cart?.numItemsInCart || 0;
 };
 
+/* ──────────────────────────────
+   CART • HELPERS
+   Purpose: internal functions to support cart actions
+   ────────────────────────────── */
+
+/**
+ * Fetch a product by ID.
+ * Throws an error if the product does not exist.
+ */
+const fetchProduct = async (productId: string) => {
+  const product = await db.product.findUnique({
+    where: {
+      id: productId,
+    },
+  });
+
+  if (!product) {
+    throw new Error("Product not found");
+  }
+  return product;
+};
+
+/**
+ * Prisma include clause used for consistent eager-loading
+ * of cart items and their related products.
+ */
+const includeProductClause = {
+  cartItems: {
+    include: {
+      product: true,
+    },
+  },
+};
+
+/**
+ * Fetch an existing cart for the given user.
+ * Creates a new cart if none exists (unless `errorOnFailure` is true).
+ */
+export const fetchOrCreateCart = async ({
+  userId,
+  errorOnFailure = false,
+}: {
+  userId: string;
+  errorOnFailure?: boolean;
+}) => {
+  let cart = await db.cart.findFirst({
+    where: {
+      clerkId: userId,
+    },
+    include: includeProductClause,
+  });
+
+  if (!cart && errorOnFailure) {
+    throw new Error("Cart not found");
+  }
+
+  if (!cart) {
+    cart = await db.cart.create({
+      data: {
+        clerkId: userId,
+      },
+      include: includeProductClause,
+    });
+  }
+
+  return cart;
+};
+
+/**
+ * Update the quantity of an existing cart item, or create one if it doesn't exist.
+ */
+const updateOrCreateCartItem = async ({
+  productId,
+  cartId,
+  amount,
+}: {
+  productId: string;
+  cartId: string;
+  amount: number;
+}) => {
+  let cartItem = await db.cartItem.findFirst({
+    where: {
+      productId,
+      cartId,
+    },
+  });
+  if (cartItem) {
+    cartItem = await db.cartItem.update({
+      where: {
+        id: cartItem.id,
+      },
+      data: {
+        amount: cartItem.amount + amount,
+      },
+    });
+  } else {
+    cartItem = await db.cartItem.create({
+      data: {
+        amount,
+        productId,
+        cartId,
+      },
+    });
+  }
+};
+
+/**
+ * Recalculate and update the cart totals (items count, subtotal, tax, and total).
+ * Returns the updated cart including products.
+ */
+export const updateCart = async (cart: Cart) => {
+  const cartItems = await db.cartItem.findMany({
+    where: {
+      cartId: cart.id,
+    },
+    include: {
+      product: true,
+    },
+  });
+  let numItemsInCart = 0;
+  let cartTotal = 0;
+
+  for (const item of cartItems) {
+    numItemsInCart += item.amount;
+    cartTotal += item.amount * item.product.price;
+  }
+  const tax = cart.taxRate * cartTotal;
+  const shipping = cartTotal ? cart.shipping : 0;
+  const orderTotal = cartTotal + tax + shipping;
+
+  const currentCart = await db.cart.update({
+    where: {
+      id: cart.id,
+    },
+    data: {
+      numItemsInCart,
+      cartTotal,
+      tax,
+      orderTotal,
+    },
+    include: includeProductClause,
+  });
+  return currentCart;
+};
+
+/* ──────────────────────────────
+   CART • ACTIONS
+   Purpose: main server actions used by forms or UI components
+   ────────────────────────────── */
+
+/**
+ * Add a product to the current user's cart.
+ * Validates product existence, creates a cart if needed,
+ * updates the cart item quantity, recalculates totals, and redirects to /cart.
+ */
 export const AddToCartAction = async (prevState: any, formData: FormData) => {
-  return { message: "product added to the cart" };
+  const user = await getAuthUser();
+  try {
+    const productId = formData.get("productId") as string;
+    const amount = Number(formData.get("amount"));
+    await fetchProduct(productId);
+    const cart = await fetchOrCreateCart({ userId: user.id });
+    await updateOrCreateCartItem({ productId, cartId: cart.id, amount });
+    await updateCart(cart);
+  } catch (error) {
+    return renderError(error);
+  }
+  redirect("/cart");
 };
