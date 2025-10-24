@@ -544,8 +544,8 @@ const updateOrCreateCartItem = async ({
 };
 
 /**
- * Recalculate and update the cart totals (items count, subtotal, tax, and total).
- * Returns the updated cart including products.
+ * Recalculate and update cart totals (items count, subtotal, tax, and total).
+ * Returns the updated cart with its items and related products.
  */
 export const updateCart = async (cart: Cart) => {
   const cartItems = await db.cartItem.findMany({
@@ -610,6 +610,10 @@ export const AddToCartAction = async (prevState: any, formData: FormData) => {
   redirect("/cart");
 };
 
+/**
+ * Remove an item from the current user's cart.
+ * Deletes the specified cart item, updates cart totals, and revalidates the cart page.
+ */
 export const removeCartItemAction = async (
   prevState: any,
   formData: FormData
@@ -635,6 +639,10 @@ export const removeCartItemAction = async (
   }
 };
 
+/**
+ * Update the quantity of a specific cart item.
+ * Recalculates totals and revalidates the cart page.
+ */
 export const updateCartItemAction = async ({
   amount,
   cartItemId,
@@ -665,6 +673,10 @@ export const updateCartItemAction = async ({
     return renderError(error);
   }
 };
+
+/**
+ * Placeholder for order creation logic.
+ */
 export const createOrderAction = async (prevState: any, formData: FormData) => {
   return { message: "order created" };
 };
