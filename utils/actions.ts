@@ -674,9 +674,75 @@ export const updateCartItemAction = async ({
   }
 };
 
+/* ──────────────────────────────
+   ORDERS
+   Purpose: handle order creation, user orders, and admin sales overview
+   ────────────────────────────── */
+
 /**
- * Placeholder for order creation logic.
+ * Create a new order for the current user (from the cart page).
+ * Transfers cart data to a new order record, deletes the cart,
+ * and redirects to the user's orders page.
  */
 export const createOrderAction = async (prevState: any, formData: FormData) => {
-  return { message: "order created" };
+  const user = await getAuthUser();
+  try {
+    const cart = await fetchOrCreateCart({
+      userId: user.id,
+      errorOnFailure: true,
+    });
+    const order = await db.order.create({
+      data: {
+        clerkId: user.id,
+        products: cart.numItemsInCart,
+        orderTotal: cart.orderTotal,
+        tax: cart.tax,
+        shipping: cart.shipping,
+        email: user.emailAddresses[0].emailAddress,
+      },
+    });
+    await db.cart.delete({
+      where: {
+        id: cart.id,
+      },
+    });
+  } catch (error) {
+    return renderError(error);
+  }
+  redirect("/orders");
+};
+
+/**
+ * Fetch all paid orders for the current user (for the Orders page).
+ * Returns orders sorted by most recent.
+ */
+export const fetchUserOrders = async () => {
+  const user = await getAuthUser();
+  const orders = await db.order.findMany({
+    where: {
+      clerkId: user.id,
+      isPaid: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+  return orders;
+};
+
+/**
+ * Fetch all paid orders for the admin dashboard/sales page.
+ * Admin-only access; returns all orders sorted by most recent.
+ */
+export const fetchAdminOrders = async () => {
+  await getAdminUser();
+  const orders = await db.order.findMany({
+    where: {
+      isPaid: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+  return orders;
 };
