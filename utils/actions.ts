@@ -681,16 +681,28 @@ export const updateCartItemAction = async ({
 
 /**
  * Create a new order for the current user (from the cart page).
- * Transfers cart data to a new order record, deletes the cart,
- * and redirects to the user's orders page.
+ * Deletes any existing unpaid orders, transfers current cart data
+ * to a new order record, and redirects the user to the checkout page
+ * with the new `orderId` and `cartId` as query parameters.
  */
 export const createOrderAction = async (prevState: any, formData: FormData) => {
   const user = await getAuthUser();
+  let orderId: null | string = null;
+  let cartId: null | string = null;
+
   try {
     const cart = await fetchOrCreateCart({
       userId: user.id,
       errorOnFailure: true,
     });
+    cartId = cart.id;
+    await db.order.deleteMany({
+      where: {
+        clerkId: user.id,
+        isPaid: false,
+      },
+    });
+
     const order = await db.order.create({
       data: {
         clerkId: user.id,
@@ -701,15 +713,11 @@ export const createOrderAction = async (prevState: any, formData: FormData) => {
         email: user.emailAddresses[0].emailAddress,
       },
     });
-    await db.cart.delete({
-      where: {
-        id: cart.id,
-      },
-    });
+    orderId = order.id;
   } catch (error) {
     return renderError(error);
   }
-  redirect("/orders");
+  redirect(`/checkout?orderId=${orderId}&cartId=${cartId}`);
 };
 
 /**
